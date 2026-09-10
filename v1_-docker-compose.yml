@@ -1,0 +1,39 @@
+name: nginx-node-redis
+services:
+  prod:
+    container_name: prod
+    image: nginx:alpine
+    environment:
+      API_URL: ${API_URL:?API_URL doit etre definie dans .env}
+    ports: 
+      - 8080:80
+    volumes:
+      - ./app/dist:/usr/share/nginx/html
+      - ./conf/default.conf:/etc/nginx/templates/default.conf.template:ro
+    depends_on:
+      - node
+  node:
+    container_name: node
+    image: node:22
+    environment:
+      REDIS_URL: ${REDIS_URL:?REDIS_URL doit etre definie dans .env}
+      API_DEV_URL: ${API_DEV_URL:?API_DEV_URL doit etre definie dans .env}
+    working_dir: /usr/src/app
+    init: true
+    command: sh -c "npm ci && (node server.js & exec npm run dev -- --host 0.0.0.0 --port 5173 --strictPort)"
+    volumes:
+      - ./app:/usr/src/app
+      - /usr/src/app/node_modules
+    ports:
+      - 4000:4000
+      - 5173:5173
+    depends_on:
+      - redis
+  redis:
+    image: redis:alpine
+    command: redis-server --appendonly yes --appendfsync everysec
+    volumes:
+      - redis_data:/data
+
+volumes:
+  redis_data:
