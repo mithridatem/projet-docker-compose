@@ -12,3 +12,12 @@ cd projet-docker-compose
 cd app
 npm install
 ```
+## builder la version de prod (dossier ./dist)
+```sh
+npm run build
+```
+
+## lancer la version de dev
+```sh
+npm run dev
+```
