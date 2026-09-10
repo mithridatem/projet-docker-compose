@@ -1,0 +1,61 @@
+name: nginx-node-redis
+
+services:
+  nginx:
+    image: nginx:alpine
+    environment:
+      API_URL: ${API_URL:?API_URL doit etre definie dans .env}
+      VITE_URL: ${VITE_URL:?VITE_URL doit etre definie dans .env}
+      DEV_HOST: ${DEV_HOST:?DEV_HOST doit etre definie dans .env}
+      PROD_HOST: ${PROD_HOST:?PROD_HOST doit etre definie dans .env}
+      NGINX_ENVSUBST_FILTER: '^(API_URL|VITE_URL|DEV_HOST|PROD_HOST)$$'
+    ports:
+      - "${HTTP_PORT:-8080}:80"
+    volumes:
+      - dist:/usr/share/nginx/html:ro
+      - ./conf/default.conf:/etc/nginx/templates/default.conf.template:ro
+    networks:
+      - web
+    depends_on:
+      - node
+
+  node:
+    image: node:22
+    working_dir: /usr/src/app
+    init: true
+    environment:
+      REDIS_URL: ${REDIS_URL:?REDIS_URL doit etre definie dans .env}
+      API_DEV_URL: ${API_DEV_URL:?API_DEV_URL doit etre definie dans .env}
+    # Compilation avant le demarrage de Vite et de l'API.
+    command:
+      - sh
+      - -c
+      - npm ci && npm run build && (node server.js & exec npm run dev -- --host 0.0.0.0 --port 3000 --strictPort)
+    volumes:
+      # Le code reste en lecture seule ; les fichiers generes vont dans des volumes.
+      - ./app:/usr/src/app:ro
+      - node_modules:/usr/src/app/node_modules
+      - dist:/usr/src/app/dist
+    networks:
+      - web
+      - data
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:alpine
+    command: redis-server --appendonly yes --appendfsync everysec
+    volumes:
+      - redis_data:/data
+    networks:
+      - data
+
+networks:
+  web:
+  data:
+    internal: true
+
+volumes:
+  node_modules:
+  dist:
+  redis_data:
